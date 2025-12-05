@@ -1,0 +1,6 @@
+# llama.cpp Kubernetes Configuration
+# Generated: 2025-12-06
+
+MODELS_PATH="/home/raphi/git/models"
+MODEL_FILE="Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf"
+NODE_IP="172.22.22.57"

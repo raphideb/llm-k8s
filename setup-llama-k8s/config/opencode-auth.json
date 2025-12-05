@@ -1,0 +1,10 @@
+{
+  "llamacpp-code": {
+    "type": "api",
+    "key": "dummy-key"
+  },
+  "llamacpp-chat": {
+    "type": "api",
+    "key": "dummy-key"
+  }
+}

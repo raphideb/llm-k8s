@@ -1,0 +1,263 @@
+---
+# Namespace for LLM deployments
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: llm-inference
+
+---
+# PersistentVolume for model storage using hostPath
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: llm-models-pv
+  namespace: llm-inference
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes:
+    - ReadOnlyMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-path
+  hostPath:
+    path: /home/raphi/git/models
+    type: Directory
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - node-with-gpu  # Replace with your actual node hostname
+
+---
+# PersistentVolumeClaim for models
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: llm-models-pvc
+  namespace: llm-inference
+spec:
+  accessModes:
+    - ReadOnlyMany
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 50Gi
+
+---
+# Deployment for Qwen2.5-Coder-14B (GPU-optimized for coding)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qwen-coder-14b
+  namespace: llm-inference
+  labels:
+    app: qwen-coder-14b
+    model: qwen2.5-coder-14b-instruct
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qwen-coder-14b
+  template:
+    metadata:
+      labels:
+        app: qwen-coder-14b
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: node-with-gpu  # Replace with your actual node hostname
+      containers:
+      - name: llama-server
+        image: ghcr.io/ggml-org/llama.cpp:server-cuda
+        imagePullPolicy: Always
+        command:
+          - /llama-server
+        args:
+          - --model
+          - /models/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf
+          - --host
+          - "0.0.0.0"
+          - --port
+          - "8080"
+          - --n-gpu-layers
+          - "48"  # All 48 layers on GPU for max performance
+          - --ctx-size
+          - "32768"  # 32K context for coding tasks
+          - --n-batch
+          - "2048"  # Large batch for throughput
+          - --n-ubatch
+          - "512"  # Micro-batch size
+          - --threads
+          - "8"  # CPU threads for non-GPU work
+          - --flash-attn
+          - "1"  # Enable flash attention on CUDA
+          - --metrics
+          - --log-format
+          - json
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        resources:
+          requests:
+            nvidia.com/gpu: 1
+            memory: "16Gi"
+            cpu: "4"
+          limits:
+            nvidia.com/gpu: 1
+            memory: "24Gi"
+            cpu: "8"
+        volumeMounts:
+        - name: models
+          mountPath: /models
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: models
+        persistentVolumeClaim:
+          claimName: llm-models-pvc
+
+---
+# Service for Qwen2.5-Coder-14B (NodePort)
+apiVersion: v1
+kind: Service
+metadata:
+  name: qwen-coder-14b-service
+  namespace: llm-inference
+  labels:
+    app: qwen-coder-14b
+spec:
+  type: NodePort
+  selector:
+    app: qwen-coder-14b
+  ports:
+  - port: 8080
+    targetPort: 8080
+    nodePort: 30080
+    protocol: TCP
+    name: http
+
+---
+# Deployment for Qwen2.5-14B-Instruct (Hybrid GPU/RAM for chat)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qwen-chat-14b
+  namespace: llm-inference
+  labels:
+    app: qwen-chat-14b
+    model: qwen2.5-14b-instruct
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qwen-chat-14b
+  template:
+    metadata:
+      labels:
+        app: qwen-chat-14b
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: node-with-gpu  # Replace with your actual node hostname
+      containers:
+      - name: llama-server
+        image: ghcr.io/ggml-org/llama.cpp:server-cuda
+        imagePullPolicy: Always
+        command:
+          - /llama-server
+        args:
+          - --model
+          - /models/Qwen2.5-14B-Instruct-Q4_K_M.gguf
+          - --host
+          - "0.0.0.0"
+          - --port
+          - "8080"
+          - --n-gpu-layers
+          - "24"  # Half layers on GPU, half in RAM for simultaneous operation
+          - --ctx-size
+          - "16384"  # 16K context for chat
+          - --n-batch
+          - "1024"  # Medium batch size
+          - --n-ubatch
+          - "256"  # Smaller micro-batch
+          - --threads
+          - "8"  # CPU threads for RAM-based layers
+          - --flash-attn
+          - "1"  # Enable flash attention on CUDA
+          - --metrics
+          - --log-format
+          - json
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        resources:
+          requests:
+            nvidia.com/gpu: 1
+            memory: "16Gi"
+            cpu: "4"
+          limits:
+            nvidia.com/gpu: 1
+            memory: "24Gi"
+            cpu: "8"
+        volumeMounts:
+        - name: models
+          mountPath: /models
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: models
+        persistentVolumeClaim:
+          claimName: llm-models-pvc
+
+---
+# Service for Qwen2.5-14B-Instruct (NodePort)
+apiVersion: v1
+kind: Service
+metadata:
+  name: qwen-chat-14b-service
+  namespace: llm-inference
+  labels:
+    app: qwen-chat-14b
+spec:
+  type: NodePort
+  selector:
+    app: qwen-chat-14b
+  ports:
+  - port: 8080
+    targetPort: 8080
+    nodePort: 30081
+    protocol: TCP
+    name: http
