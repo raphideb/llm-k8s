@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gemma-2-9b-it-q4-k-m
+  namespace: llama
+  labels:
+    app: gemma-2-9b-it-q4-k-m
+    managed-by: llm-manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gemma-2-9b-it-q4-k-m
+  template:
+    metadata:
+      labels:
+        app: gemma-2-9b-it-q4-k-m
+    spec:
+      containers:
+        - name: llama-server
+          image: ghcr.io/ggml-org/llama.cpp:server-cuda
+          ports:
+            - containerPort: 8080
+              name: http
+          args:
+            - --model
+            - /models/gemma-2-9b-it-Q4_K_M.gguf
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "8080"
+            - -ngl
+            - "99"
+            - --ctx-size
+            - "32768"
+            - -b
+            - "2048"
+            - -ub
+            - "512"
+            - --threads
+            - "8"
+            - --flash-attn
+            - "on"
+            - --metrics
+          resources:
+            limits:
+              memory: "16Gi"
+            requests:
+              memory: "8Gi"
+          volumeMounts:
+            - name: models
+              mountPath: /models
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          env:
+            - name: PLACEHOLDER
+              value: "none"
+      volumes:
+        - name: models
+          hostPath:
+            path: /home/raphi/git/models
+            type: Directory
+      nodeSelector:
+        kubernetes.io/hostname: plexus
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule

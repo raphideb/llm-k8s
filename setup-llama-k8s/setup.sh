@@ -381,7 +381,7 @@ install_nvidia_toolkit() {
 
     log STEP "Installing prerequisites..."
     run_cmd sudo apt-get update
-    run_cmd sudo apt-get install -y curl gnupg2
+    run_cmd sudo apt-get install -y curl gnupg2 jq
 
     log STEP "Adding NVIDIA Container Toolkit repository..."
     if [ "$DRY_RUN" = true ]; then

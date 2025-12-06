@@ -8,10 +8,17 @@ This repository provides scripts to deploy llama.cpp as an opencode.ai compatibl
 
 **Note:** This project was completely done with claude-code opus, I am just getting started with running my own LLM. If you have claude, you can have it read PROJECT-CONTEXT.md as a starting point for your own environment. If your k8s is deployed with the scripts from my kube repo, chances are high that it will just work ;)  
 
-## Hardware Specs and Model
-I use the Qwen2.5-Coder-14B-Q4_K_M model running on a NVIDIA RTX5080 with 16GB VRAM, an AMD Ryzen 9 9900X CPU and 64GB RAM. As configured it uses all 16GB of the GPU and is surprisingly fast.  
+## Hardware Specs
 
-On my first try I also added the model Qwen2.5-14B-Instruct for chat but it can't run well together with the coder model on the GPU. It runs reasonable fast on CPU but I decided to drop it from my installation to free up ressources. Coder is enough for me, even for some "chatting". I left it in the opencode-config.json in case you want to add it later. You can ask Coder how to add it based on the deployment manifests in this project ;)
+| Component | Specification |
+|-----------|---------------|
+| GPU | NVIDIA RTX 5080 (16GB VRAM) |
+| CPU | AMD Ryzen 9 9900X |
+| RAM | 64GB |
+
+I run **Qwen2.5-Coder-14B-Q4_K_M** on GPU for coding tasks. It uses all 16GB VRAM and is surprisingly fast.
+
+**Want to use a different model?** Use [`manage-models.sh`](docs/MODEL-MANAGER-GUIDE.md) to download, install, and switch between models. Only one model can run on GPU at a time, but you can run multiple models on CPU simultaneously.
 
 ## Quick Start
 
@@ -27,6 +34,19 @@ cd setup-llama-k8s
 # 3. Test it works
 ./setup.sh test
 ```
+
+## Model Management
+
+After initial setup, use `manage-models.sh` to manage multiple models:
+
+```bash
+./manage-models.sh download qwen2.5-coder-7b-q4   # Download a model
+./manage-models.sh install                         # Install to Kubernetes
+./manage-models.sh activate                        # Start a model
+./manage-models.sh list                            # Show deployed models
+```
+
+See the full [Model Manager Guide](docs/MODEL-MANAGER-GUIDE.md) for all commands and examples.
 
 ## Commands
 

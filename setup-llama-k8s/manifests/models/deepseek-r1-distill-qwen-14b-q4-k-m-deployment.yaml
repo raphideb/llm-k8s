@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deepseek-r1-distill-qwen-14b-q4-k-m
+  namespace: llama
+  labels:
+    app: deepseek-r1-distill-qwen-14b-q4-k-m
+    managed-by: llm-manager
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: deepseek-r1-distill-qwen-14b-q4-k-m
+  template:
+    metadata:
+      labels:
+        app: deepseek-r1-distill-qwen-14b-q4-k-m
+    spec:
+      containers:
+        - name: llama-server
+          image: ghcr.io/ggml-org/llama.cpp:server-cuda
+          ports:
+            - containerPort: 8080
+              name: http
+          args:
+            - --model
+            - /models/DeepSeek-R1-Distill-Qwen-14B-Q4_K_M.gguf
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "8080"
+            - -ngl
+            - "99"
+            - --ctx-size
+            - "32768"
+            - -b
+            - "2048"
+            - -ub
+            - "512"
+            - --threads
+            - "8"
+            - --flash-attn
+            - "on"
+            - --metrics
+          resources:
+            limits:
+              nvidia.com/gpu: 1
+              memory: "16Gi"
+            requests:
+              nvidia.com/gpu: 1
+              memory: "8Gi"
+          volumeMounts:
+            - name: models
+              mountPath: /models
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          env:
+            - name: CUDA_VISIBLE_DEVICES
+              value: "0"
+      volumes:
+        - name: models
+          hostPath:
+            path: /home/raphi/git/models
+            type: Directory
+      nodeSelector:
+        kubernetes.io/hostname: plexus
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
