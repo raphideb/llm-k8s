@@ -67,9 +67,16 @@ Configuration is saved to `.llama-config`.
 - Docker with NVIDIA runtime
 - wget or curl (for model download)
 
-## API Usage
 
-After deployment:
+## After deployment
+### opencode
+Start opencode and choose your model:
+```bash
+opencode
+```
+![opencode](https://github.com/user-attachments/assets/ef123585-6e62-44d1-b2d4-eace16fffdff)
+
+### API Usage
 
 ```bash
 # Health check
@@ -80,12 +87,6 @@ curl http://<NODE_IP>:30080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model":"local","messages":[{"role":"user","content":"Hello"}]}'
 ```
-
-# Start opencode and chose your model:
-```bash
-opencode
-```
-
 
 ## Troubleshooting
 
