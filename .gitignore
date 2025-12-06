@@ -1,0 +1,5 @@
+# User-specific configuration
+setup-llama-k8s/.llama-config
+
+# Logs
+setup-llama-k8s/setup.log
